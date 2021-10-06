@@ -1,0 +1,237 @@
+---
+title: "Palmer Penguins"
+author: "themisbo"
+date: "2/10/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Classification of the Palmer penguins data
+
+This document is part of the showcase, where I replicate the same brief and simple analyses with different tools.
+
+This particular file focuses on simple classification of the Palmer penguins data from the tidytuesday project.
+
+The data can be found in <https://github.com/rfordatascience/tidytuesday/tree/master/data/2020/2020-07-28>. They consist of one documents: *penguins.csv* contains information and measurements about some penguins.
+
+For the specific analysis I will use **R** and **tidymodels** (plus **RMarkdown**).
+
+We start by loading the packages:
+
+```{r}
+library(tidyverse) # metapackage for data analysis
+library(tidymodels) # metapackage for machine learning
+library(naniar) # package for analysis of missing values
+library(GGally) # package for extra visualizations
+library(themis) # package for imbalanced classes
+
+theme_set(theme_light()) # global configuration for visualizations
+```
+
+and the datset:
+
+```{r}
+penguins <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-07-28/penguins.csv')
+```
+
+We can have a look at the nature of the penguin data:
+
+```{r}
+glimpse(penguins)
+```
+
+and a few summary statistics:
+
+```{r}
+skimr::skim(penguins)
+```
+
+Our main goal is to try and build a model that classifies the species of the penguins based on their other characteristics.
+
+We start by checking for missing values:
+
+```{r}
+penguins %>%
+  gg_miss_var()
+
+penguins %>%
+  gg_miss_upset()
+```
+
+The first plot shows that 5 of the features contain missing data (11 regard sex and 2 for each of the penguin measurements) and the second shows that actually there are 2 penguins for which we have neither sex information nor the measurements, and 9 additional penguins for which we are only missing the sex.
+
+In practice, since this is a small amount of missing data we could drop all of them, but for the purposes of this showcase, we are going to drop only those that are missing the majority of information and impute the ones that are missing only the sex (later).
+
+```{r}
+penguins <- penguins %>%
+  drop_na(bill_length_mm)
+```
+
+Now we can plot the classes:
+
+```{r}
+penguins %>%
+  ggplot(aes(species, fill = species)) +
+  geom_bar()
+
+# step_smote in recipe
+```
+
+This is not very bad for a small and simple dataset like this, but once again for this showcase we are going to try and balance the classes (later).
+
+We can also plot the scatterplots, conditional distributions and boxplots and also check the individual correlations (for the continuous features). 
+
+```{r}
+penguins %>% select(-year,-island,-sex) %>%
+  ggpairs(ggplot2::aes(colour=species))
+```
+
+There are some pretty clear patterns patterns, so we are going to use all the features (except from the year each penguin was recorded, which doesn't make sense to use). We also need to change all character features to factors:
+
+```{r}
+penguins_data <- penguins %>%
+  select(-year) %>%
+  mutate_if(is.character, factor)
+```
+
+Now we can split the dataset to training and testing:
+
+```{r}
+set.seed(123)
+data_split <- initial_split(penguins_data, strata = species)
+data_train <- training(data_split)
+data_test <- testing(data_split)
+```
+
+The plan is to do some hyperparameter tuning later, so we are also going to split the training dataset into 4 folds, using cross-validation:
+
+```{r}
+data_folds <- vfold_cv(data_train, v=4, strata=species)
+```
+
+The first model we are going to use is a support vector machine. We define the model:
+
+```{r}
+model_svm <- svm_linear() %>%
+  set_engine("LiblineaR") %>%
+  set_mode("classification")
+```
+
+and the recipe (data pre-processing and feature engineering step).
+
+This is going to include the following steps:
+* k nearest neighbor imputation for the sex feature
+* Switch all nominal predictors to dummy variables
+* Get rid of (possible) zero variance predictors
+* Normalize all numeric predictors
+* Use smote on the label to deal with the class imbalance
+
+```{r}
+rec <- recipe(species~., data = penguins_data) %>%
+  step_impute_knn(sex) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_zv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(species)
+```
+
+We can see how the training data look after the pre-processing:
+
+```{r}
+rec %>% prep() %>% bake(new_data = NULL)
+```
+
+Now we combine the recipe and the model to create the workflow:
+
+```{r}
+wf <- workflow() %>%
+  add_recipe(rec) %>%
+  add_model(model_svm)
+```
+
+We finally, fit the training data into the workflow:
+
+```{r}
+model_fit <- fit(wf, data = data_train)
+```
+
+We can check the predictions of the testing data using the values and also the plot of the confusion matrix.
+```{r}
+augment(model_fit, data_test) %>%
+  conf_mat(species, .pred_class) 
+
+augment(model_fit, data_test) %>%
+  conf_mat(species, .pred_class) %>%
+  autoplot()
+```
+
+This was a very simple dataset and the SVM classification model ended up making perfect predictions for all the data.
+
+We are also going to try and fit a decision tree model, for which we allow the hyperparameter tree_depth (maximum depth of the decision tree) to be tuned: 
+
+```{r}
+model_tree <- decision_tree(tree_depth = tune()) %>%
+  set_engine("rpart") %>%
+  set_mode("classification")
+```
+
+We specify a new workflow with the new algorithm and the same recipe:
+
+```{r}
+wf_tree <- workflow() %>%
+  add_recipe(rec) %>%
+  add_model(model_tree)
+```
+
+We perform hyper-parameter tuning using the cross-validation folds:
+
+```{r}
+model_tune_tree <- tune_grid(wf_tree, resamples = data_folds, grid = 10)
+```
+
+And we extract the best model:
+
+```{r}
+show_best(model_tune_tree, metric = 'roc_auc')
+```
+
+It looks like it was a 5-way tie. We can also plot some metrics for the different values of tree_depth:
+
+```{r}
+model_tune_tree %>%
+  autoplot()
+```
+
+It looks like, except from a very narrow tree with depth 1, all the rest have virtually the same performance.
+
+We can now finalize the model be selecting the best one (for the specific occasion any of the 5 will do):
+
+
+```{r}
+finalize_model <- wf_tree %>%
+  finalize_workflow(select_best(model_tune_tree, metric = 'roc_auc'))
+```
+
+And fit on the data:
+
+```{r}
+model_fit_fin <- last_fit(finalize_model, data_split)
+```
+
+Once again we can look at the values and plot of the confusion matrix:
+
+```{r}
+model_fit_fin %>% collect_predictions() %>%
+  conf_mat(species, .pred_class)
+
+model_fit_fin %>% collect_predictions() %>%
+  conf_mat(species, .pred_class) %>%
+  autoplot()
+```
+
+The decision tree model actually miss-classified a few of the penguins, but still did a good job.

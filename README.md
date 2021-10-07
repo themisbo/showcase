@@ -14,3 +14,4 @@ With [Julia and DataFrames](billb100_Julia_DataFrames.jl)<br />
 ## Classification of the Palmer penguins data
 
 With [R and dplyr](PalmerPenguins_R_tidymodels.Rmd)<br />
+With [Python and scikit-learn](PalmerPenguins_Python_scikit-learn.ipynb)<br />

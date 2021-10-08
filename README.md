@@ -15,3 +15,4 @@ With [Julia and DataFrames](billb100_Julia_DataFrames.jl)<br />
 
 With [R and dplyr](PalmerPenguins_R_tidymodels.Rmd)<br />
 With [Python and scikit-learn](PalmerPenguins_Python_scikit-learn.ipynb)<br />
+With [Python and Pyspark](PalmerPenguins_Python_pyspark.ipynb)<br />

@@ -1,5 +1,7 @@
 # Deployment with Flask (in Windows 10 with cmd)
 
+This is part of the showcase. There is another repo (https://github.com/themisbo/heroku_penguins) that includes the same web app and some additional files required for deployment on Heroku (link for the Heroku app: https://heroku-palmerpenguins.herokuapp.com/)
+
 ## Install the virtualenv package
   
    ```sh

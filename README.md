@@ -19,4 +19,4 @@ With [Python and Spark](PalmerPenguins_Python_pyspark.ipynb)<br />
 
 ## Deployment
 
-With [Python and Flask](deployment/) (Heroku link: https://arxiv.org/abs/2008.00422)<br />
+With [Python and Flask](deployment/) (Heroku link: https://heroku-palmerpenguins.herokuapp.com/)<br />

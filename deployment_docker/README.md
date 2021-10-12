@@ -34,6 +34,14 @@ This is part of the showcase.
    pip install -r requirements.txt
    ```
 
+## Build and run the docker image
+
+
+   ```sh
+   docker build -t palmer-docker .
+   docker run -p 8000:8000 palmer-docker
+   ```
+
 Copy the following URL and paste it into a browser:
 
    ```sh

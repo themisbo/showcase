@@ -17,6 +17,7 @@ With [R and tidymodels](PalmerPenguins_R_tidymodels.Rmd)<br />
 With [R and stan](PalmerPenguins_R_stan.Rmd)<br />
 With [Python and scikit-learn](PalmerPenguins_Python_scikit-learn.ipynb)<br />
 With [Python and Spark](PalmerPenguins_Python_pyspark.ipynb)<br />
+With [Python and pymc3](PalmerPenguins_Python_pymc3.ipynb)<br />
 
 ## Deployment
 
